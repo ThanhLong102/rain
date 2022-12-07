@@ -108,7 +108,7 @@ class optimizer:
                 if i % print_at == 0:
                     output = 1 * (prediction >= 0.5)
                     accuracy = np.sum(output == Y) / batch_size
-                    print('At:', i, ' Loss', loss, ' - accuracy:', accuracy)
+                    print('At:', i, '[==========>] Loss', loss, ' - accuracy:', accuracy)
             epochs = epochs - 1
 
     @staticmethod
@@ -116,8 +116,8 @@ class optimizer:
         """
         Updates the parameters using gradients and learning rate provided
 
-        :param params   : Parameters of the network
-        :param updation    : updation valcues calculated using appropriate algorithms
+        :param params: Parameters of the network
+        :param updation: updation valcues calculated using appropriate algorithms
         :param learning_rate: Learning rate for the updation of values in params
         :return : Updated params
         """
