@@ -5,7 +5,7 @@ import sqlalchemy
 
 def getConnectDataFrame():
     database_username = 'root'
-    database_password = 'anhhieu123'
+    database_password = 'trung0000'
     database_ip = 'localhost'
     database_name = 'rain'
 
@@ -18,8 +18,9 @@ def getConnectDataFrame():
 def connect():
     mn = con.connect(host="localhost",
                      user='root',
-                     password='anhhieu123',
-                     database="rain")
+                     password='trung0000',
+                     database="rain",
+                     port=3306)
     return mn
 
 
