@@ -18,8 +18,17 @@ def getFeatures():
 @cross_origin()
 def getPredictionWithFeatures():
     featuresDrop = request.get_json()
-    return rain_service.getPredictionWithFeatures(featuresDrop)
-
+    modelSelect = request.args.get('model')
+    if modelSelect=='decisionTree':
+        return rain_service.getPredictionWithFeaturesDesicitionTree(featuresDrop)
+    elif modelSelect=='linear_regresion':
+        return rain_service.getPredictionWithFeaturesLinear(featuresDrop)
+    elif modelSelect=='decision_tree_rd':
+        return rain_service.getPredictionWithFeaturesRandoForest(featuresDrop)
+    elif modelSelect=='logisticRegression':
+        return rain_service.getPredictionWithFeatureLr(featuresDrop)
+    else:
+        return rain_service.getPredictionWithFeatures(featuresDrop)
 
 if __name__ == "__main__":
     app.run()
