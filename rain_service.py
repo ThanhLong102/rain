@@ -7,7 +7,7 @@ from sklearn import preprocessing
 import model.nn as nn
 from model.optimizer import optimizer as optimizer
 import db.Db as db
-
+import logistic_service as lg_service
 np.random.seed(0)
 
 
@@ -187,8 +187,9 @@ def getPredictionWithFeatures(featuresDrop):
     net = trainModel(X_train, y_train)
     accuracy = getPredictionFromTest(net, X_test, y_test)
     mseLoss = getMSELoss(net, X_test, y_test)
+    accuracy_logistic = lg_service.getPredictionWithFeatures(featuresDrop)
     savePrediction(net, X_test, y_test)
-    return {"accuracy": str(accuracy), "mseLoss": str(mseLoss)}
+    return {"accuracy": str(accuracy), "mseLoss": str(mseLoss),"accuracyLogistic":str(accuracy_logistic)}
 
 
 if __name__ == "__main__":
