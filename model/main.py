@@ -5,7 +5,6 @@ import sklearn.datasets as datasets
 import nn
 import numpy as np
 from optimizer import optimizer
-import LogisticRegresstion
 
 def test_run():
     """
