@@ -1,11 +1,14 @@
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn import preprocessing
 import model.nn as nn
 from model.optimizer import optimizer as optimizer
+import logistic_service
+from NMKHDL.rain.model import decisionTree
+from NMKHDL.rain.model import RandomForest
+from NMKHDL.rain.model import linear_regresion
 import db.Db as db
 
 np.random.seed(0)
@@ -119,13 +122,19 @@ def getWeatherProcessed():
     return data
 
 
+def getWeatherProcessedLr():
+    result, column_name = db.getWeatherProcessedLR()
+    data = pd.DataFrame(data=result, columns=column_name)
+    return data
+
+
 def dropFeaturesAndSplit(features: pd.DataFrame, featuresDrop: list):
     featuresDrop.append("RainTomorrow")
     X = features.drop(featuresDrop, axis=1)
     y = features["RainTomorrow"]
 
     # Splitting test and training sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
     return X_train, X_test, y_train, y_test
 
 
@@ -135,12 +144,12 @@ def trainModel(X_train, y_train):
 
     # optimize using  ADAM
     net = nn.nn([X.shape[0], 32, 32, 1], ['relu', 'relu', 'sigmoid'], epochs=1)
-    net.cost_function = 'mseloss'
+    net.cost_function = 'MSELoss'
     print('net architecture :')
     print(net)
 
     optim = optimizer.AdamOptimizer
-    optim(X, Y, net, alpha=0.00009, lamb=0.005, print_at=500)
+    optim(X, Y, net, alpha=0.00009, print_at=1)
     return net
 
 
@@ -159,10 +168,14 @@ def savePrediction(net, X_test, y_test):
     X_test = np.array(X_test).T
     prediction = net.forward(X_test)
     y_actual = np.array([y_test])
-    database_connection = db.getConnectDataFrame()
     result = pd.DataFrame(
         {'id': [*range(1, prediction[0].size + 1)], 'prediction': prediction[0], 'actual': y_actual[0]})
-    result.to_sql(con=database_connection, name='result', if_exists='replace', index=False)
+    result.to_sql(con=db.getConnectDataFrame(), name='result', if_exists='replace', index=False)
+
+
+def saveMetrics(net):
+    result = pd.DataFrame(net.cache_metrics)
+    result.to_sql(con=db.getConnectDataFrame(), name='metric', if_exists='replace', index=False)
 
 
 def getMSELoss(net, X_test, y_test):
@@ -185,12 +198,68 @@ def getPredictionWithFeatures(featuresDrop):
     features = getWeatherProcessed()
     X_train, X_test, y_train, y_test = dropFeaturesAndSplit(features, featuresDrop)
     net = trainModel(X_train, y_train)
+    saveMetrics(net)
     accuracy = getPredictionFromTest(net, X_test, y_test)
     mseLoss = getMSELoss(net, X_test, y_test)
     savePrediction(net, X_test, y_test)
     return {"accuracy": str(accuracy), "mseLoss": str(mseLoss)}
 
 
+def getPredictionWithFeaturesDesicitionTree(featuresDrop):
+    features = getWeatherProcessed()
+    features = features.iloc[0:1000]
+    X_train, X_test, y_train, y_test = dropFeaturesAndSplit(features, featuresDrop)
+    X_train.index = [x for x in range(1, len(X_train.values) + 1)]
+    y_train.index = [x for x in range(1, len(y_train.values) + 1)]
+    tree = decisionTree.DecisionTreeID3(max_depth=1, min_samples_split=2)
+    tree.fit(X_train, y_train)
+    a = y_test.to_numpy()
+    b = tree.predict(X_test)
+    print(a, b)
+    result = pd.DataFrame(
+        {'id': [*range(1, a.size + 1)], 'prediction': a, 'actual': b})
+    result.to_sql(con=db.getConnectDataFrame(), name='result_decision', if_exists='replace', index=False)
+    print(decisionTree.accuracy_score(a, b))
+
+
+def getPredictionWithFeaturesRandoForest(featuresDrop):
+    features = getWeatherProcessed()
+    features = features.iloc[0:10000]
+    X_train, X_test, y_train, y_test = dropFeaturesAndSplit(features, featuresDrop)
+
+    clf = RandomForest.RandomFores(n_trees=3, min_samples_split=2, max_depth=5)
+    clf.fit(X_train.values, y_train.values)
+    y_pred = clf.predict(X_test.values)
+    # y_pred =rd.predict_rf(model, X_test)
+    acc = clf.accuracy(y_test.values, y_pred)
+    y_pred = (y_pred > 0.5)
+    result = pd.DataFrame(
+        {'id': [*range(1, y_pred.size + 1)], 'prediction': y_pred, 'actual': y_test.values})
+    result.to_sql(con=db.getConnectDataFrame(), name='result_randomforest', if_exists='replace', index=False)
+    return acc
+
+
+def getPredictionWithFeaturesLinear(featuresDrop):
+    features = getWeatherProcessed()
+    features = features.iloc[0:10000]
+    X_train, X_test, y_train, y_test = dropFeaturesAndSplit(features, featuresDrop)
+
+    # Model training
+    model = linear_regresion.LinearRegression(iterations=1000, learning_rate=0.01)
+    model.fit(X_train.values, y_train.values)
+
+    # Prediction on test set
+    Y_pred = model.predict(X_test.values)
+    result = pd.DataFrame(
+        {'id': [*range(1, Y_pred.size + 1)], 'prediction': Y_pred, 'actual': y_test.values})
+    result.to_sql(con=db.getConnectDataFrame(), name='result_linear', if_exists='replace', index=False)
+    return 100 - np.mean(np.abs(Y_pred - y_test)) * 100
+
+
+def getPredictionWithFeatureLr(featuresDrop):
+    return logistic_service.getPredictionWithFeatures(featuresDrop)
+
+
 if __name__ == "__main__":
-    processedAndUpdate()
-    print(getFeatures())
+    print(getPredictionWithFeaturesLinear([]))
+    # print(getFeatures())

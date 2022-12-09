@@ -45,6 +45,17 @@ def getWeatherProcessed():
     return result, column_name
 
 
+def getWeatherProcessedLR():
+    mn = connect()
+    cur = mn.cursor()
+    cur.execute('SELECT * From weather_processed_logistic;')
+    column_name = cur.column_names
+    result = cur.fetchall()
+    cur.close()
+    mn.close()
+    return result, column_name
+
+
 def insertData():
     mn = connect()
     cur = mn.cursor()

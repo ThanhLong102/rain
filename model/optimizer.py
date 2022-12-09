@@ -7,7 +7,7 @@ import numpy as np
 
 class optimizer:
     @staticmethod
-    def gradientDescentOptimizer(input, mappings, net, alpha=0.001, lamb=0, iterations=100, print_at=5, prnt=True,
+    def gradientDescentOptimizer(input, mappings, net, alpha=0.001, iterations=100, print_at=5, prnt=True,
                                  update=True):
         """
         Performs gradient descent on the given network setting the default value of epoch and alpha if not provided otherwise
@@ -16,11 +16,9 @@ class optimizer:
         :param mapping: Correct output of the function
         :param net    : nn.nn object which provides the network architecture
         :param alpha  : Learning rate
-        :param lamb   : Regularization parameter
         :param print_at: Print at multiples of 'print_at'
         :param prnt   : Print if prnt=true
         """
-        net.lamb = lamb
 
         for i in range(iterations):
             net.cache = []
@@ -40,7 +38,7 @@ class optimizer:
                 net.parameters = optimizer.update_params(net.parameters, net.grads, alpha)
 
     @staticmethod
-    def AdamOptimizer(input, mappings, net, alpha=0.001, lamb=0, betas=(0.9, 0.999), batch_size=32, print_at=5,
+    def AdamOptimizer(input, mappings, net, alpha=0.001, betas=(0.9, 0.999), batch_size=64, print_at=5,
                       iterations=1):
         """
         Performs Adam optimization on the given network.
@@ -50,13 +48,15 @@ class optimizer:
         :param mapping: Correct output of the function
         :param net    : nn.nn object which provides the network architecture
         :param alpha  : Learning rate
-        :param lamb   : Regularization parameter
         :param betas: Adam Hyper parameters
         :param print_at: Print at multiples of 'print_at'
         :param prnt   : Print if prnt=true
         :return : None
         """
         velocity, square = {}, {}
+        list_iteration = []
+        list_loss = []
+        list_accuracy = []
         for i in range(int(len(net.parameters) / 2)):
             velocity['dW' + str(i + 1)] = np.zeros(net.parameters['W' + str(i + 1)].shape)
             velocity['db' + str(i + 1)] = np.zeros(net.parameters['b' + str(i + 1)].shape)
@@ -76,7 +76,7 @@ class optimizer:
                 X = input[:, (i - 1) * batch_size: i * batch_size]
                 Y = mappings[:, (i - 1) * batch_size: i * batch_size]
 
-                optimizer.gradientDescentOptimizer(X, Y, net, lamb, iterations=1, prnt=False, update=False)
+                optimizer.gradientDescentOptimizer(X, Y, net, iterations=1, prnt=False, update=False)
 
                 for j in range(int(len(net.parameters) / 2)):
                     velocity['dW' + str(j + 1)] = betas[0] * velocity['dW' + str(j + 1)] + (1 - betas[0]) * net.grads[
@@ -104,12 +104,20 @@ class optimizer:
                     loss = net.MSELoss(prediction, Y)
                 if loss_function == 'crossentropyloss':
                     loss = net.CrossEntropyLoss(prediction, Y)
-
+                output = 1 * (prediction >= 0.5)
+                accuracy = np.sum(output == Y) / batch_size
                 if i % print_at == 0:
-                    output = 1 * (prediction >= 0.5)
-                    accuracy = np.sum(output == Y) / batch_size
                     print('At:', i, '[==========>] Loss', loss, ' - accuracy:', accuracy)
+
+                # Add metrics
+                list_iteration.append(i)
+                list_loss.append(loss)
+                list_accuracy.append(accuracy)
+            net.cache_metrics = {'iteration': list_iteration,
+                                 'loss': list_loss,
+                                 'accuracy': list_accuracy}
             epochs = epochs - 1
+
 
     @staticmethod
     def update_params(params, updation, learning_rate):

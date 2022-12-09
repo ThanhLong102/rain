@@ -19,7 +19,6 @@ class nn:
          is layer number.
         -activations contains the names of activation function used for that layer
         -cost_function  contains the name of cost function to be used
-        -lamb contains the regularization hyperparameter
         -grads contains the gradients calculated during back-prop in form {'dA(i-1)':[],'dWi':[],'dbi':[]}
         -layer_type contains the info about the type of layer( fc, etc)
         """
@@ -27,7 +26,7 @@ class nn:
         self.cache = []
         self.activations = activations
         self.cost_function = ''
-        self.lamb = 0
+        self.cache_metrics = {'iteration': [], 'loss': [], 'accuracy': []}
         self.epochs = epochs
         self.grads = {}
         self.layer_type = ['']
@@ -85,8 +84,9 @@ class nn:
         n_layer: Layer's index
         :return: Activated layer and activation cache
         """
-        act_cache = [Z]
+
         act = None
+        act_cache = [Z]
         if (self.activations[n_layer - 1]) is None:
             act = Z
         elif (self.activations[n_layer - 1]).lower() == "relu":
@@ -109,7 +109,7 @@ class nn:
         """
         self.cache = []
         A = net_input
-        for i in range(1, int(len(self.parameters) / 2)):
+        for i in range(1, int(len(self.parameters) / 2 + 1)):
             W = self.parameters["W" + str(i)]
             b = self.parameters["b" + str(i)]
             Z = linear_cache = None
@@ -121,15 +121,15 @@ class nn:
             self.cache.append([linear_cache, act_cache])
 
         # For Last Layer
-        W = self.parameters["W" + str(int(len(self.parameters) / 2))]
-        b = self.parameters["b" + str(int(len(self.parameters) / 2))]
-        Z, linear_cache = self.__linear_forward(A, W, b)
-        if len(self.activations) == len(self.parameters) / 2:
-            A, act_cache = self.__activate(Z, len(self.activations))
-            self.cache.append([linear_cache, act_cache])
-        else:
-            A = Z
-            self.cache.append([linear_cache, [None]])
+        # W = self.parameters["W" + str(int(len(self.parameters) / 2))]
+        # b = self.parameters["b" + str(int(len(self.parameters) / 2))]
+        # Z, linear_cache = self.__linear_forward(A, W, b)
+        # if len(self.activations) == len(self.parameters) / 2:
+        #     A, act_cache = self.__activate(Z, len(self.activations))
+        #     self.cache.append([linear_cache, act_cache])
+        # else:
+        #     A = Z
+        #     self.cache.append([linear_cache, [None]])
 
         return A
 
@@ -145,13 +145,7 @@ class nn:
 
         self.cost_function = 'MSELoss'
         loss = np.square(prediction - mappings).mean()
-        regularization_cost = 0
-        if self.lamb != 0:
-            for params in range(len(self.cache)):
-                regularization_cost = regularization_cost + np.sum(np.square(self.parameters['W' + str(params + 1)]))
-        regularization_cost = (self.lamb / (2 * prediction.shape[1])) * regularization_cost
-
-        return loss + regularization_cost
+        return loss
 
     def CrossEntropyLoss(self, prediction: ndarray, mappings: ndarray) -> float64:
         """
@@ -165,13 +159,7 @@ class nn:
         self.cost_function = 'CrossEntropyLoss'
         loss = -(1 / prediction.shape[1]) * np.sum(
             mappings * np.log(prediction + epsilon) + (1 - mappings) * np.log(1 - prediction + epsilon))
-        regularization_cost = 0
-        if self.lamb != 0:
-            for params in range(len(self.cache)):
-                regularization_cost = regularization_cost + np.sum(np.square(self.parameters['W' + str(params + 1)]))
-        regularization_cost = (self.lamb / (2 * prediction.shape[1])) * regularization_cost
-
-        return loss + regularization_cost
+        return loss
 
     def output_backward(self, prediction: ndarray, mapping: ndarray) -> ndarray:
         """
@@ -219,6 +207,11 @@ class nn:
         Calculates linear backward propragation for layer denoted by n_layer
         :param dA: Derivative of cost w.r.t this layer
         :param n_layer: layer number
+        :example: dA[1]=W[2]TdZ[2]
+                dZ[1]=W[2]TdZ[2].∗g[1]′(z[1])
+                dW[1]=1/mdZ[1]A[0]T
+                dB[1]=1/mΣdZ[1]
+
         :return : dZ,dW,db,dA_prev
         """
         batch_size = dA.shape[1]
@@ -227,7 +220,7 @@ class nn:
         A_prev, W, b = linear_cache
 
         dZ = dA * self.deactivate(dA, n_layer)
-        dW = (1 / batch_size) * dZ.dot(A_prev.T) + (self.lamb / batch_size) * self.parameters['W' + str(n_layer)]
+        dW = (1 / batch_size) * dZ.dot(A_prev.T)
         db = (1 / batch_size) * np.sum(dZ, keepdims=True, axis=1)
         dA_prev = W.T.dot(dZ)
 
